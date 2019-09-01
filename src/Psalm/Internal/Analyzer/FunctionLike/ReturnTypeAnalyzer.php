@@ -2,6 +2,7 @@
 namespace Psalm\Internal\Analyzer\FunctionLike;
 
 use PhpParser;
+use PhpParser\Node\Expr\ArrowFunction;
 use PhpParser\Node\Expr\Closure;
 use PhpParser\Node\FunctionLike;
 use PhpParser\Node\Stmt\ClassMethod;
@@ -46,7 +47,8 @@ use function in_array;
 class ReturnTypeAnalyzer
 {
     /**
-     * @param Closure|Function_|ClassMethod $function
+     * @param Closure|Function_|ClassMethod|ArrowFunction $function
+     * @param PhpParser\Node\Stmt[] $function_stmts
      * @param Type\Union|null     $return_type
      * @param string              $fq_class_name
      * @param CodeLocation|null   $return_type_location
@@ -56,6 +58,7 @@ class ReturnTypeAnalyzer
      */
     public static function verifyReturnType(
         FunctionLike $function,
+        array $function_stmts,
         SourceAnalyzer $source,
         FunctionLikeAnalyzer $function_like_analyzer,
         Type\Union $return_type = null,
@@ -113,14 +116,11 @@ class ReturnTypeAnalyzer
         if (!$return_type_location) {
             $return_type_location = new CodeLocation(
                 $function_like_analyzer,
-                $function instanceof Closure ? $function : $function->name
+                $function instanceof Closure || $function instanceof ArrowFunction ? $function : $function->name
             );
         }
 
         $inferred_yield_types = [];
-
-        /** @var PhpParser\Node\Stmt[] */
-        $function_stmts = $function->getStmts();
 
         $ignore_nullable_issues = false;
         $ignore_falsable_issues = false;
@@ -261,7 +261,7 @@ class ReturnTypeAnalyzer
         }
 
         if (!$return_type) {
-            if ($function instanceof Closure) {
+            if ($function instanceof Closure || $function instanceof ArrowFunction) {
                 if (!$closure_inside_call || $inferred_return_type->isMixed()) {
                     if ($codebase->alter_code
                         && isset($project_analyzer->getIssuesToFix()['MissingClosureReturnType'])
@@ -521,6 +521,7 @@ class ReturnTypeAnalyzer
             ) {
                 if ($function instanceof Function_
                     || $function instanceof Closure
+                    || $function instanceof ArrowFunction
                     || $function->isPrivate()
                 ) {
                     $check_for_less_specific_type = true;
@@ -626,7 +627,7 @@ class ReturnTypeAnalyzer
     }
 
     /**
-     * @param Closure|Function_|ClassMethod $function
+     * @param Closure|Function_|ClassMethod|ArrowFunction $function
      *
      * @return false|null
      */
@@ -690,7 +691,7 @@ class ReturnTypeAnalyzer
             return false;
         }
 
-        if ($function instanceof Closure) {
+        if ($function instanceof Closure || $function instanceof ArrowFunction) {
             return;
         }
 
@@ -758,7 +759,7 @@ class ReturnTypeAnalyzer
     }
 
     /**
-     * @param Closure|Function_|ClassMethod $function
+     * @param Closure|Function_|ClassMethod|ArrowFunction $function
      * @param bool $docblock_only
      *
      * @return void
